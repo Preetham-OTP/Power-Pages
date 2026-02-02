@@ -21,7 +21,7 @@ steps:
   displayName: Export Managed Solution
   inputs:
     authenticationType: PowerPlatformSPN
-    PowerPlatformSPN: PP-Source-WIF
+    PowerPlatformSPN: Test-WIF
     SolutionName: $(solutionName)
     SolutionOutputFile: $(managedZip)
     Managed: true
@@ -45,7 +45,7 @@ steps:
   displayName: Import Managed Solution with Env Variables
   inputs:
     authenticationType: PowerPlatformSPN
-    PowerPlatformSPN: PP-Target-WIF
+    PowerPlatformSPN: Test-Target-WIF
     SolutionInputFile: $(Pipeline.Workspace)/$(solutionName)_managed.zip
     Managed: true
     UseDeploymentSettingsFile: true
