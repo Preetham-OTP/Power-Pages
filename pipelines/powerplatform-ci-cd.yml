@@ -1,0 +1,55 @@
+trigger:
+- main
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  solutionName: Testing_Environment_Variables
+  artifactName: powerplatform
+  managedZip: $(Build.ArtifactStagingDirectory)/$(solutionName)_managed.zip
+
+steps:
+- checkout: self
+
+# Install Power Platform tools
+- task: PowerPlatformToolInstaller@2
+  displayName: Install Power Platform Tools
+
+# Export managed solution
+- task: PowerPlatformExportSolution@2
+  displayName: Export Managed Solution
+  inputs:
+    authenticationType: PowerPlatformSPN
+    PowerPlatformSPN: PP-Source-WIF
+    SolutionName: $(solutionName)
+    SolutionOutputFile: $(managedZip)
+    Managed: true
+
+# Publish artifact
+- task: PublishPipelineArtifact@1
+  displayName: Publish Solution Artifact
+  inputs:
+    targetPath: $(Build.ArtifactStagingDirectory)
+    artifact: $(artifactName)
+
+# Download artifact
+- task: DownloadPipelineArtifact@2
+  displayName: Download Solution Artifact
+  inputs:
+    artifact: $(artifactName)
+    path: $(Pipeline.Workspace)
+
+# Import solution + apply env variables
+- task: PowerPlatformImportSolution@2
+  displayName: Import Managed Solution with Env Variables
+  inputs:
+    authenticationType: PowerPlatformSPN
+    PowerPlatformSPN: PP-Target-WIF
+    SolutionInputFile: $(Pipeline.Workspace)/$(solutionName)_managed.zip
+    Managed: true
+    UseDeploymentSettingsFile: true
+    DeploymentSettingsFile: $(Build.SourcesDirectory)/Power_Pages/deploymentSettings.json
+    PublishWorkflows: true
+    AsyncOperation: true
+    MaxAsyncWaitTime: 60
