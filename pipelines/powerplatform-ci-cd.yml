@@ -71,11 +71,13 @@ stages:
   jobs:
   - deployment: DeployEnv2
     displayName: Deploy to Env 2
-    environment: Preetham   # 🔐 Approval is enforced here
+    environment: Preetham
     strategy:
       runOnce:
         deploy:
           steps:
+
+          - checkout: self   # ✅ THIS WAS MISSING
 
           - task: PowerPlatformToolInstaller@2
             displayName: Install Power Platform Tools
