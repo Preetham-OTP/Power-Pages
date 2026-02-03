@@ -1,0 +1,8 @@
+{
+  "EnvironmentVariables": [
+    {
+      "SchemaName": "cr391_API_URL",
+      "Value": "https://env2.api.com"
+    }
+  ]
+}
