@@ -9,47 +9,92 @@ variables:
   artifactName: powerplatform
   managedZip: $(Build.ArtifactStagingDirectory)/$(solutionName)_managed.zip
 
-steps:
-- checkout: self
+stages:
 
-# Install Power Platform tools
-- task: PowerPlatformToolInstaller@2
-  displayName: Install Power Platform Tools
+# =========================================================
+# STAGE 1 – EXPORT FROM SOURCE & DEPLOY TO ENV 1
+# =========================================================
+- stage: Deploy_Env1
+  displayName: Deploy to Env 1
+  jobs:
+  - job: DeployEnv1
+    displayName: Export and Import to Env 1
+    steps:
+    - checkout: self
 
-# Export managed solution
-- task: PowerPlatformExportSolution@2
-  displayName: Export Managed Solution
-  inputs:
-    authenticationType: PowerPlatformSPN
-    PowerPlatformSPN: Test-WIF
-    SolutionName: $(solutionName)
-    SolutionOutputFile: $(managedZip)
-    Managed: true
+    - task: PowerPlatformToolInstaller@2
+      displayName: Install Power Platform Tools
 
-# Publish artifact
-- task: PublishPipelineArtifact@1
-  displayName: Publish Solution Artifact
-  inputs:
-    targetPath: $(Build.ArtifactStagingDirectory)
-    artifact: $(artifactName)
+    - task: PowerPlatformExportSolution@2
+      displayName: Export Managed Solution
+      inputs:
+        authenticationType: PowerPlatformSPN
+        PowerPlatformSPN: Test-WIF
+        SolutionName: $(solutionName)
+        SolutionOutputFile: $(managedZip)
+        Managed: true
 
-# Download artifact
-- task: DownloadPipelineArtifact@2
-  displayName: Download Solution Artifact
-  inputs:
-    artifact: $(artifactName)
-    path: $(Pipeline.Workspace)
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Solution Artifact
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)
+        artifact: $(artifactName)
 
-# Import solution + apply env variables
-- task: PowerPlatformImportSolution@2
-  displayName: Import Managed Solution with Env Variables
-  inputs:
-    authenticationType: PowerPlatformSPN
-    PowerPlatformSPN: Test-Target-WIF
-    SolutionInputFile: $(Pipeline.Workspace)/$(solutionName)_managed.zip
-    Managed: true
-    UseDeploymentSettingsFile: true
-    DeploymentSettingsFile: $(Build.SourcesDirectory)/Power_Pages/deploymentSettings.json
-    PublishWorkflows: true
-    AsyncOperation: true
-    MaxAsyncWaitTime: 60
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Solution Artifact
+      inputs:
+        artifact: $(artifactName)
+        path: $(Pipeline.Workspace)
+
+    - task: PowerPlatformImportSolution@2
+      displayName: Import to Env 1
+      inputs:
+        authenticationType: PowerPlatformSPN
+        PowerPlatformSPN: Test-Target-WIF
+        SolutionInputFile: $(Pipeline.Workspace)/$(solutionName)_managed.zip
+        Managed: true
+        UseDeploymentSettingsFile: true
+        DeploymentSettingsFile: $(Build.SourcesDirectory)/Power_Pages/deploymentSettings.json
+        PublishWorkflows: true
+        AsyncOperation: true
+        MaxAsyncWaitTime: 60
+
+
+# =========================================================
+# STAGE 2 – DEPLOY TO ENV 2 (APPROVAL REQUIRED)
+# =========================================================
+- stage: Deploy_Env2
+  displayName: Deploy to Env 2 (Approval Required)
+  dependsOn: Deploy_Env1
+  condition: succeeded()
+
+  jobs:
+  - deployment: DeployEnv2
+    displayName: Deploy to Env 2
+    environment: Preetham   # 🔐 Approval is enforced here
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - task: PowerPlatformToolInstaller@2
+            displayName: Install Power Platform Tools
+
+          - task: DownloadPipelineArtifact@2
+            displayName: Download Solution Artifact
+            inputs:
+              artifact: $(artifactName)
+              path: $(Pipeline.Workspace)
+
+          - task: PowerPlatformImportSolution@2
+            displayName: Import to Env 2
+            inputs:
+              authenticationType: PowerPlatformSPN
+              PowerPlatformSPN: Test-WIF-Target-2
+              SolutionInputFile: $(Pipeline.Workspace)/$(solutionName)_managed.zip
+              Managed: true
+              UseDeploymentSettingsFile: true
+              DeploymentSettingsFile: $(Build.SourcesDirectory)/Power_Pages/deploymentSettings-env2.json
+              PublishWorkflows: true
+              AsyncOperation: true
+              MaxAsyncWaitTime: 60
