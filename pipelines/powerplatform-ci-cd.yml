@@ -77,7 +77,7 @@ stages:
         deploy:
           steps:
 
-          - checkout: self   # ✅ THIS WAS MISSING
+          - checkout: self
 
           - task: PowerPlatformToolInstaller@2
             displayName: Install Power Platform Tools
