@@ -15,26 +15,29 @@ stages:
 # =========================================================
 # STAGE 1 – EXPORT FROM SOURCE & DEPLOY TO ENV 1
 # =========================================================
-- stage: Deploy_Env1
-  displayName: Deploy to Env 1
+- stage: Export_And_Deploy_Env1
+  displayName: Export from Source and Deploy to Env 1
+
   jobs:
-  - job: DeployEnv1
-    displayName: Export and Import to Env 1
+  - job: Build_And_Deploy_Env1
+    displayName: Export Managed Solution and Import to Env 1
+
     steps:
     - checkout: self
 
     - task: PowerPlatformToolInstaller@2
       displayName: Install Power Platform Tools
 
-    # 🔥 Auto Set Version (DevOps Standard)
+    # Auto Versioning
     - task: PowerPlatformSetSolutionVersion@2
-      displayName: Set Solution Version Automatically
+      displayName: Set Solution Version
       inputs:
         authenticationType: PowerPlatformSPN
         PowerPlatformSPN: Test-WIF
         SolutionName: $(solutionName)
         SolutionVersionNumber: $(majorMinorVersion).$(Build.BuildId).0
 
+    # Export Managed Solution
     - task: PowerPlatformExportSolution@2
       displayName: Export Managed Solution
       inputs:
@@ -44,26 +47,20 @@ stages:
         SolutionOutputFile: $(managedZip)
         Managed: true
 
+    # Publish Artifact for next stages
     - task: PublishPipelineArtifact@1
       displayName: Publish Solution Artifact
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifact: $(artifactName)
 
-    - task: DownloadPipelineArtifact@2
-      displayName: Download Solution Artifact
-      inputs:
-        artifact: $(artifactName)
-        path: $(Pipeline.Workspace)
-
-    # 🔥 Import as UPGRADE (Correct ALM)
+    # Import to Env 1 (Upgrade Mode)
     - task: PowerPlatformImportSolution@2
-      displayName: Import to Env 1 (Upgrade Mode)
+      displayName: Import to Env 1 (Upgrade)
       inputs:
         authenticationType: PowerPlatformSPN
         PowerPlatformSPN: Test-Target-WIF
-        SolutionInputFile: $(Pipeline.Workspace)/$(solutionName)_managed.zip
-        Managed: true
+        SolutionInputFile: $(managedZip)
         ImportAsHoldingSolution: false
         OverwriteUnmanagedCustomizations: true
         UseDeploymentSettingsFile: true
@@ -77,14 +74,14 @@ stages:
 # STAGE 2 – DEPLOY TO ENV 2 (APPROVAL REQUIRED)
 # =========================================================
 - stage: Deploy_Env2
-  displayName: Deploy to Env 2 (Approval Required)
-  dependsOn: Deploy_Env1
+  displayName: Deploy to Env 2
+  dependsOn: Export_And_Deploy_Env1
   condition: succeeded()
 
   jobs:
-  - deployment: DeployEnv2
-    displayName: Deploy to Env 2
-    environment: Preetham
+  - deployment: Deploy_To_Env2
+    displayName: Import Solution to Env 2
+    environment: Env2-Approval   # Configure approval in Environments
     strategy:
       runOnce:
         deploy:
@@ -101,14 +98,12 @@ stages:
               artifact: $(artifactName)
               path: $(Pipeline.Workspace)
 
-          # 🔥 Always Upgrade
           - task: PowerPlatformImportSolution@2
-            displayName: Import to Env 2 (Upgrade Mode)
+            displayName: Import to Env 2 (Upgrade)
             inputs:
               authenticationType: PowerPlatformSPN
               PowerPlatformSPN: Test-WIF-Target-2
               SolutionInputFile: $(Pipeline.Workspace)/$(solutionName)_managed.zip
-              Managed: true
               ImportAsHoldingSolution: false
               OverwriteUnmanagedCustomizations: true
               UseDeploymentSettingsFile: true
