@@ -7,6 +7,7 @@ pool:
 variables:
   solutionName: Testing_Environment_Variables
   artifactName: powerplatform
+  majorMinorVersion: 1.0
   managedZip: $(Build.ArtifactStagingDirectory)/$(solutionName)_managed.zip
 
 stages:
@@ -24,6 +25,15 @@ stages:
 
     - task: PowerPlatformToolInstaller@2
       displayName: Install Power Platform Tools
+
+    # 🔥 Auto Set Version (DevOps Standard)
+    - task: PowerPlatformSetSolutionVersion@2
+      displayName: Set Solution Version Automatically
+      inputs:
+        authenticationType: PowerPlatformSPN
+        PowerPlatformSPN: Test-WIF
+        SolutionName: $(solutionName)
+        SolutionVersionNumber: $(majorMinorVersion).$(Build.BuildId).0
 
     - task: PowerPlatformExportSolution@2
       displayName: Export Managed Solution
@@ -46,13 +56,16 @@ stages:
         artifact: $(artifactName)
         path: $(Pipeline.Workspace)
 
+    # 🔥 Import as UPGRADE (Correct ALM)
     - task: PowerPlatformImportSolution@2
-      displayName: Import to Env 1
+      displayName: Import to Env 1 (Upgrade Mode)
       inputs:
         authenticationType: PowerPlatformSPN
         PowerPlatformSPN: Test-Target-WIF
         SolutionInputFile: $(Pipeline.Workspace)/$(solutionName)_managed.zip
         Managed: true
+        ImportAsHoldingSolution: false
+        OverwriteUnmanagedCustomizations: true
         UseDeploymentSettingsFile: true
         DeploymentSettingsFile: $(Build.SourcesDirectory)/Power_Pages/deploymentSettings.json
         PublishWorkflows: true
@@ -88,13 +101,16 @@ stages:
               artifact: $(artifactName)
               path: $(Pipeline.Workspace)
 
+          # 🔥 Always Upgrade
           - task: PowerPlatformImportSolution@2
-            displayName: Import to Env 2
+            displayName: Import to Env 2 (Upgrade Mode)
             inputs:
               authenticationType: PowerPlatformSPN
               PowerPlatformSPN: Test-WIF-Target-2
               SolutionInputFile: $(Pipeline.Workspace)/$(solutionName)_managed.zip
               Managed: true
+              ImportAsHoldingSolution: false
+              OverwriteUnmanagedCustomizations: true
               UseDeploymentSettingsFile: true
               DeploymentSettingsFile: $(Build.SourcesDirectory)/Power_Pages/deploymentSettings-env2.json
               PublishWorkflows: true
