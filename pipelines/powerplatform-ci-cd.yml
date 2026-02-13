@@ -13,10 +13,10 @@ variables:
 stages:
 
 # =========================================================
-# STAGE 1 – EXPORT FROM SOURCE & TRUE UPGRADE TO ENV 1
+# STAGE 1 – EXPORT FROM SOURCE & DEPLOY TO ENV 1
 # =========================================================
 - stage: Export_And_Deploy_Env1
-  displayName: Export from Source and Deploy to Env 1 (True Upgrade)
+  displayName: Export from Source and Deploy to Env 1
 
   jobs:
   - job: Build_And_Deploy_Env1
@@ -28,16 +28,16 @@ stages:
     - task: PowerPlatformToolInstaller@2
       displayName: Install Power Platform Tools
 
-    # 🔥 Strong version increment (important for upgrade detection)
+    # Auto Versioning
     - task: PowerPlatformSetSolutionVersion@2
       displayName: Set Solution Version
       inputs:
         authenticationType: PowerPlatformSPN
         PowerPlatformSPN: Test-WIF
         SolutionName: $(solutionName)
-        SolutionVersionNumber: $(majorMinorVersion).$(Build.BuildId).0.0
+        SolutionVersionNumber: $(majorMinorVersion).$(Build.BuildId).0
 
-    # Export Managed
+    # Export Managed Solution
     - task: PowerPlatformExportSolution@2
       displayName: Export Managed Solution
       inputs:
@@ -47,16 +47,16 @@ stages:
         SolutionOutputFile: $(managedZip)
         Managed: true
 
-    # Publish Artifact
+    # Publish Artifact for next stages
     - task: PublishPipelineArtifact@1
       displayName: Publish Solution Artifact
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifact: $(artifactName)
 
-    # =====================================================
-    # STEP 1 – STAGE FOR UPGRADE (ENV 1)
-    # =====================================================
+    # ==============================
+    # STAGE FOR UPGRADE – ENV 1
+    # ==============================
     - task: PowerPlatformImportSolution@2
       displayName: Stage for Upgrade - Env 1
       inputs:
@@ -68,11 +68,11 @@ stages:
         DeploymentSettingsFile: $(Build.SourcesDirectory)/Power_Pages/deploymentSettings.json
         PublishWorkflows: true
         AsyncOperation: true
-        MaxAsyncWaitTime: 240
+        MaxAsyncWaitTime: 60
 
-    # =====================================================
-    # STEP 2 – APPLY UPGRADE (ENV 1)
-    # =====================================================
+    # ==============================
+    # APPLY UPGRADE – ENV 1
+    # ==============================
     - task: PowerPlatformApplySolutionUpgrade@2
       displayName: Apply Upgrade - Env 1
       inputs:
@@ -80,14 +80,14 @@ stages:
         PowerPlatformSPN: Test-Target-WIF
         SolutionName: $(solutionName)
         AsyncOperation: true
-        MaxAsyncWaitTime: 240
+        MaxAsyncWaitTime: 60
 
 
 # =========================================================
-# STAGE 2 – TRUE UPGRADE TO ENV 2 (WITH APPROVAL)
+# STAGE 2 – DEPLOY TO ENV 2 (APPROVAL REQUIRED)
 # =========================================================
 - stage: Deploy_Env2
-  displayName: Deploy to Env 2 (True Upgrade)
+  displayName: Deploy to Env 2
   dependsOn: Export_And_Deploy_Env1
   condition: succeeded()
 
@@ -111,9 +111,9 @@ stages:
               artifact: $(artifactName)
               path: $(Pipeline.Workspace)
 
-          # =====================================================
-          # STEP 1 – STAGE FOR UPGRADE (ENV 2)
-          # =====================================================
+          # ==============================
+          # STAGE FOR UPGRADE – ENV 2
+          # ==============================
           - task: PowerPlatformImportSolution@2
             displayName: Stage for Upgrade - Env 2
             inputs:
@@ -125,11 +125,11 @@ stages:
               DeploymentSettingsFile: $(Build.SourcesDirectory)/Power_Pages/deploymentSettings-env2.json
               PublishWorkflows: true
               AsyncOperation: true
-              MaxAsyncWaitTime: 240
+              MaxAsyncWaitTime: 60
 
-          # =====================================================
-          # STEP 2 – APPLY UPGRADE (ENV 2)
-          # =====================================================
+          # ==============================
+          # APPLY UPGRADE – ENV 2
+          # ==============================
           - task: PowerPlatformApplySolutionUpgrade@2
             displayName: Apply Upgrade - Env 2
             inputs:
@@ -137,4 +137,4 @@ stages:
               PowerPlatformSPN: Test-WIF-Target-2
               SolutionName: $(solutionName)
               AsyncOperation: true
-              MaxAsyncWaitTime: 240
+              MaxAsyncWaitTime: 60
